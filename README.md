@@ -2,6 +2,9 @@
 
 Another memory allocator.
 
+> [!WARNING]
+> Project is unfinished! (about 5%)
+
 ### About
 
 This is just a personal project to learn about
