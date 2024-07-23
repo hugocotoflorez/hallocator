@@ -20,6 +20,6 @@ any issue or place any comment of any type.
 
 ### Sources
 
-Main knowledge source is ![ostep](https://pages.cs.wisc.edu/~remzi/OSTEP/#book-chapters).
+Main knowledge source is [ostep](https://pages.cs.wisc.edu/~remzi/OSTEP/#book-chapters).
 
 
