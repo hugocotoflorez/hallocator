@@ -18,16 +18,18 @@
 // total chunk size
 #define SIZE 4096
 
+#define MAGIC 0x777
+
 typedef struct __node_t
 {
-    int              size;
-    struct __node_t *next;
+        int              size;
+        struct __node_t *next;
 } node_t;
 
 typedef struct
 {
-    int size;
-    int magic;
+        int size;
+        int magic;
 } header_t;
 
 /*
@@ -39,10 +41,17 @@ void *
 mhalloc(int size);
 
 /*
- * void free(void* ptr)
+ * void fhree(void* ptr)
  * Free memory pointed by ptr
  */
 void
-free(void *ptr);
+fhree(void *ptr);
+
+
+void
+print_mem_map();
+
+void
+halloc_init();
 
 #endif // !_HALLOCATOR
