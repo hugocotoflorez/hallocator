@@ -12,7 +12,7 @@ existing ones (neither Im able to do it).
 ### Usage
 
 - `mhalloc(size) -> ptr`: Alloc size bytes and return a pointer to the first byte, or
-NULL if cant allocate that ammount of bytes.
+NULL if it cant allocate that ammount of bytes.
 - `fhree(ptr)`: Free an allocated block of memory (allocated using mhalloc).
 
 As this proyect is made for educational reasons, maximum memory that can be allocated is 4Kib.
