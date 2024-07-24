@@ -20,7 +20,7 @@ As this proyect is made for educational reasons, maximum memory that can be allo
 
 ### Contributions
 
-Not allowed, but free to copy the whole code and to
+Not allowed, but free to copy the whole code and do
 whatever you want with it. For this reason, dont open
 any issue or place any comment of any type.
 
