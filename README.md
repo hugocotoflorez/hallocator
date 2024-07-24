@@ -2,15 +2,21 @@
 
 Another memory allocator.
 
-> [!WARNING]
-> Project is unfinished! (about 5%)
-
 ### About
 
 This is just a personal project to learn about
 memory management and os-related stuff. It is not
 efiicient but simple, as Im not trying to improve
 existing ones (neither Im able to do it).
+
+### Usage
+
+- `mhalloc(size) -> ptr`: Alloc size bytes and return a pointer to the first byte, or
+NULL if cant allocate that ammount of bytes.
+- `fhree(ptr)`: Free an allocated block of memory (allocated using mhalloc).
+
+As this proyect is made for educational reasons, maximum memory that can be allocated is 4Kib.
+(Really a little less, due to headers and free list nodes).
 
 ### Contributions
 
