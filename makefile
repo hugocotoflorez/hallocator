@@ -1,5 +1,6 @@
 CC = gcc -Wall
 NAME = test
+LIBNAME = libhlib
 SRC = *.c
 
 all:
@@ -10,5 +11,13 @@ debug:
 
 lib:
 	gcc -c *.c
-	ar rcs libhlib.a *.o
+	ar rcs $(LIBNAME).a *.o
 	rm *.o
+
+git:
+	git add hallocator.c hallocator.h makefile README.md test.c
+	git commit -m "Updating files"
+	git push
+
+clean:
+	rm $(NAME) $(LIBNAME).a

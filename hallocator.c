@@ -3,17 +3,23 @@
 #include <sys/mman.h>
 
 // global reference to free list (linked list started at head)
-node_t *head;
+node_t *head = NULL;
 
-void
+__attribute__((constructor)) void // call function before main
 halloc_init()
 {
-    // mmap() return a chunk of free space
-    head = mmap(NULL, SIZE, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+    // avoid multiple initializations
+    if (head == NULL)
+    {
+        // mmap() return a chunk of free space
+        head =
+        mmap(NULL, SIZE, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
 
-    head->size = SIZE - sizeof(node_t);
-    head->next = NULL;
+        head->size = SIZE - sizeof(node_t);
+        head->next = NULL;
+    }
 }
+
 
 void
 fhree(void *ptr)
@@ -45,13 +51,13 @@ fhree(void *ptr)
 
     } while (temp != NULL);
 
-// check if new free block is between two free blocks
-if ((void *) hptr + hptr->size + sizeof(header_t) == next &&   (void *) hptr + hptr->size + sizeof(header_t) == next)
-{
-    temp->next = next->next;
-    temp->size+= next->size +sizeof(header_t) + sizeof(node_t) +hptr->size ;
-
-}
+    // check if new free block is between two free blocks
+    if ((void *) hptr + hptr->size + sizeof(header_t) == next &&
+        (void *) hptr + hptr->size + sizeof(header_t) == next)
+    {
+        temp->next = next->next;
+        temp->size += next->size + sizeof(header_t) + sizeof(node_t) + hptr->size;
+    }
     // check if next free junk is just after new one
     else if ((void *) hptr + hptr->size + sizeof(header_t) == next)
     {
