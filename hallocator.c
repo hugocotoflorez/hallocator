@@ -92,6 +92,12 @@ mhalloc(int size)
     void   *ptr       = NULL;
     int     best_size = SIZE;
 
+    if (head == NULL)
+    {
+        puts("\e[31hallocator: not initialized correctly\e[0m");
+        return ptr;
+    }
+
     // check if size is valid
     if (size <= 0)
     {

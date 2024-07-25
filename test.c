@@ -5,7 +5,6 @@ int
 main(int argc, char *argv[])
 {
     char *a, *b;
-    halloc_init();
     print_mem_map();
     a = mhalloc(100);
     print_mem_map();
