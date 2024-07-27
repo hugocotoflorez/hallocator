@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <sys/mman.h>
 
+
 // global reference to free list (linked list started at head)
 node_t *head = NULL;
 
@@ -11,7 +12,7 @@ halloc_init()
     // avoid multiple initializations
     if (head == NULL)
     {
-        // mmap() return a chunk of free space
+        // mmap() return a block of free space
         head =
         mmap(NULL, SIZE, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
 
@@ -25,16 +26,18 @@ void
 fhree(void *ptr)
 {
     header_t *hptr = (header_t *) ptr - 1;
-    if (hptr->size <= 0 || hptr->magic != MAGIC)
+    // I think the following check never take place, so removed
+    // hptr->size <= 0 ||
+    if (hptr->magic != MAGIC)
     {
         puts("\e[31mfhree: invalid pointer\e[0m");
         return;
     }
-    // unset header pointer as valid chunk pointer
+    // unset header pointer as valid block pointer
     hptr->magic = 0;
 
     // get next
-    node_t *next; // pointer to next free chunk header
+    node_t *next; // pointer to next free block header
     node_t *temp;
 
     // insert new node into list in O(n)
@@ -61,20 +64,20 @@ fhree(void *ptr)
     // check if next free junk is just after new one
     else if ((void *) hptr + hptr->size + sizeof(header_t) == next)
     {
-        puts("Free chunk just after current");
         *((node_t *) hptr) = (node_t){
             .size = hptr->size + sizeof(header_t) + next->size,
             .next = next->next,
         };
     }
-    // check if previous free chunk is just before new one
+    // check if previous free block is just before new one
     else if ((void *) temp + temp->size + sizeof(node_t) == hptr)
     {
-        puts("Free chunk just before current");
         temp->size += hptr->size + sizeof(header_t);
         temp->next = next;
     }
-    // current chunk is not close to another free chunk
+    // Automatically initialized before main(), can also be
+    // called, it checks if it was initialized before
+    // current block is not close to another free block
     else
     {
         // create node at head pointer
@@ -92,6 +95,7 @@ mhalloc(int size)
     void   *ptr       = NULL;
     int     best_size = SIZE;
 
+    // check if it is initialized
     if (head == NULL)
     {
         puts("\e[31hallocator: not initialized correctly\e[0m");
@@ -136,6 +140,69 @@ mhalloc(int size)
     return ptr;
 }
 
+void *
+rehalloc(void *ptr, int size)
+{
+    void     *newptr = NULL;
+    header_t *hptr;
+    header_t *next;
+    int       regions; // for moving data
+
+    // check if it is initialized
+    if (head == NULL)
+    {
+        puts("\e[31hallocator: not initialized correctly\e[0m");
+        return newptr;
+    }
+
+    // allow use rehalloc as mhalloc
+    if (ptr == NULL)
+        return mhalloc(size);
+
+    // get header
+    hptr = ptr - sizeof(header_t);
+
+    // if size is invalid returns the same pointer
+    if (hptr->size >= size)
+    {
+        puts("\e[31rehalloc: Invalid new size\e[0m");
+        return newptr;
+    }
+
+    // check if just after this block there are a free block
+    next = (void *) hptr + hptr->size + sizeof(header_t);
+    if (next->magic == MAGIC && next->size >= size - sizeof(node_t))
+    {
+        // TODO
+
+        // ! have to return on exit
+    }
+    // tambien si el bloque de antes tiene expacio se puede juntar,
+    // pero tendria que moverse el contenido porque se desplaza hacia arriba
+
+    // allocate new memory
+    newptr = mhalloc(size);
+
+    // move data from ptr to newptr
+
+    // regions of size 'sizeof(...)' in ptr
+    regions = hptr->size / sizeof(long long int);
+
+    // copy chunks of data
+    for (int i = 0; i < regions; i++)
+        ((long long int *) newptr)[i] = ((long long int *) ptr)[i];
+
+    // copy remaining bytes from out of last chunk
+    for (int i = 0; i < hptr->size % sizeof(long long int); i++)
+        ((char *) newptr + regions * sizeof(long long int))[i] =
+        ((char *) ptr + regions * sizeof(long long int))[i];
+
+    // free current pointer
+    fhree(ptr);
+
+
+    return newptr;
+}
 
 // si hay free en el medio no va
 void
