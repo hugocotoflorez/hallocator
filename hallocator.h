@@ -10,11 +10,6 @@
  * Inspiration: ostep book
  */
 
-// define null if not defined
-#ifndef NULL
-#define NULL (void *) 0
-#endif
-
 // total chunk size
 #define SIZE 4096
 
@@ -33,14 +28,18 @@ typedef struct
 } header_t;
 
 /*
- * void* mhalloc(int size)
+ * void *mhalloc(int size)
  * Alloc 'size' bytes and return a pointer to the first byte
- * If cant alloc it return NULL
+ * If cant alloc, return NULL
  */
 void *
 mhalloc(int size);
 
 /*
+ * void *rehalloc(void* ptr, int size)
+ * Alloc 'size' bytes and move data from ptr to a new possition,
+ * returns a pointer to a new possition and free previous pointer.
+ * On error previous pointer is not free and return NULL
  */
 void *
 rehalloc(void *ptr, int size);
@@ -62,5 +61,12 @@ print_mem_map();
  */
 void
 halloc_init();
+
+/*
+ * Automatically call at exit, can also be called manually
+ * but calls to allocator after this function would end in a segfault
+ */
+void
+halloc_destroy();
 
 #endif // !_HALLOCATOR

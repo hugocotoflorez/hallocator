@@ -1,10 +1,18 @@
 #include "hallocator.h"
-#include <stdio.h>
-#include <sys/mman.h>
+#include <stdio.h>    // puts, printf
+#include <stdlib.h>   // atexit
+#include <sys/mman.h> // mmap, munmap
 
 
-// global reference to free list (linked list started at head)
+// global reference to free list (sorted linked list started at head)
 node_t *head = NULL;
+
+
+void
+halloc_destroy()
+{
+    munmap(head, SIZE);
+}
 
 // Automatically initialized before main(), can also be
 // called manually
@@ -20,9 +28,10 @@ halloc_init()
 
         head->size = SIZE - sizeof(node_t);
         head->next = NULL;
+
+        atexit(halloc_destroy);
     }
 }
-
 
 void
 __move_data(void *ptr_dest, void *ptr_src, int block_size)
@@ -49,7 +58,9 @@ fhree(void *ptr)
     // hptr->size <= 0 ||
     if (hptr->magic != MAGIC)
     {
+#ifdef VERBOSE
         puts("\e[31mfhree: invalid pointer\e[0m");
+#endif
         return;
     }
     // unset header pointer as valid block pointer
@@ -115,14 +126,18 @@ mhalloc(int size)
     // check if it is initialized
     if (head == NULL)
     {
+#ifdef VERBOSE
         puts("\e[31hallocator: not initialized correctly\e[0m");
+#endif
         return NULL;
     }
 
     // check if size is valid
     if (size <= 0)
     {
+#ifdef VERBOSE
         puts("\e[31mmhalloc: invalid size\e[0m");
+#endif
         return NULL;
     }
 
@@ -133,6 +148,7 @@ mhalloc(int size)
     }
 
     // best fit algorithm (smallest free space greater or equal than size)
+    // done in a linear way, end in O(n) algorithm
     do
     {
         if (temp->size >= size && best_size > temp->size)
@@ -172,7 +188,9 @@ rehalloc(void *ptr, int size)
     // check if it is initialized
     if (head == NULL)
     {
+#ifdef VERBOSE
         puts("\e[31hallocator: not initialized correctly\e[0m");
+#endif
         return NULL;
     }
 
@@ -186,16 +204,18 @@ rehalloc(void *ptr, int size)
     // if size is invalid returns the same pointer
     if (hptr->size >= size)
     {
+#ifdef VERBOSE
         puts("\e[31rehalloc: Invalid new size\e[0m");
+#endif
         return newptr;
     }
 
     // check if just after this block there are a free block
     next = (void *) hptr + hptr->size + sizeof(header_t);
 
-    if (next->magic != MAGIC) // if its is equal to magic is used
+    if (next->magic != MAGIC) // if it is equal to magic is used
     {
-        // check if its big enought
+        // check if it is big enought
         if (next->size + sizeof(node_t) >= size - hptr->size)
         {
             hptr->size += size; // update new size
@@ -240,20 +260,6 @@ rehalloc(void *ptr, int size)
 
             newptr = (void *) newhptr + sizeof(header_t);
 
-            /*
-            // regions of size 'sizeof(...)' in ptr
-            regions = size / sizeof(long long int);
-
-            // copy chunks of data
-            for (int i = 0; i < regions; i++)
-                ((long long int *) newptr)[i] = ((long long int *) hptr)[i];
-
-            // copy remaining bytes from out of last chunk
-            for (int i = 0; i < size % sizeof(long long int); i++)
-                ((char *) newptr + regions * sizeof(long long int))[i] =
-                ((char *) hptr + regions * sizeof(long long int))[i];
-
-             */
             // move data to new position
             __move_data(newptr, ptr, hptr->size);
 
@@ -267,21 +273,6 @@ rehalloc(void *ptr, int size)
     // check for out-of-memmory error
     if (newptr == NULL)
         return NULL;
-
-    /*
-    // regions of size 'sizeof(...)' in ptr
-    regions = hptr->size / sizeof(long long int);
-
-    // copy chunks of data
-    for (int i = 0; i < regions; i++)
-        ((long long int *) newptr)[i] = ((long long int *) ptr)[i];
-
-    // copy remaining bytes from out of last chunk
-    for (int i = 0; i < hptr->size % sizeof(long long int); i++)
-        ((char *) newptr + regions * sizeof(long long int))[i] =
-        ((char *) ptr + regions * sizeof(long long int))[i];
-     */
-    __move_data(newptr, ptr, hptr->size);
 
     // move data
     __move_data(newptr, ptr, hptr->size);

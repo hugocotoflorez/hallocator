@@ -1,6 +1,8 @@
-#include "hallocator.h"
 #include <stdio.h>
 #include <unistd.h>
+
+#define VERBOSE // allow print output from hallocator
+#include "hallocator.h"
 
 #define s1 10
 #define s2 30
@@ -11,8 +13,13 @@ main(int argc, char *argv[])
     int  i;
     int *a, *b;
 
+    mhalloc(10 * sizeof(int));
+    mhalloc(10 * sizeof(int));
     a = mhalloc(s1 * sizeof(int));
-    b = mhalloc(10 * sizeof(int));
+    b = mhalloc(50 * sizeof(int));
+    mhalloc(10 * sizeof(int));
+    mhalloc(10 * sizeof(int));
+    mhalloc(10 * sizeof(int));
     mhalloc(10 * sizeof(int));
 
     for (i = 0; i < s1; i++)
