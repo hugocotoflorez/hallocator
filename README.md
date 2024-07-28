@@ -16,6 +16,7 @@ NULL if it cant allocate that ammount of bytes.
 - `fhree(ptr)`: Free an allocated block of memory (allocated using mhalloc).
 - `rehalloc(ptr, size) -> nptr`: Alloc size bytes, copy data from ptr to new region
 and return a pointer to the new region. ptr is free, so cant be used after calling rehalloc.
+If cant allocate more memory, ptr is not free and rehalloc returns NULL.
 
 
 As this proyect is made for educational reasons, maximum memory that can be allocated is 4Kib.

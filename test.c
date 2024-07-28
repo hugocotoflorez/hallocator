@@ -6,21 +6,9 @@ int
 main(int argc, char *argv[])
 {
     int *a, *b;
-
-    a = mhalloc(30 * sizeof(int));
-
-    for (int i = 0; i < 30; i++)
-        a[i] = i;
-
-    a = rehalloc(a, 100* sizeof(int));
-
-    for (int i = 30; i < 100; i++)
-        a[i] = i;
-
-    for (int i = 0; i < 100; i++)
-        printf("%d, ", a[i]);
-    puts("");
-
+    b = mhalloc(100);
+    a = mhalloc(30);
+    rehalloc(a, 100);
     print_mem_map();
 
 

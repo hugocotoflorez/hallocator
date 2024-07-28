@@ -16,7 +16,7 @@ lib:
 
 git:
 	git add hallocator.c hallocator.h makefile README.md test.c
-	git commit -m "Updating files"
+	git commit -m "Update files"
 	git push
 
 clean:

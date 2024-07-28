@@ -6,6 +6,8 @@
 // global reference to free list (linked list started at head)
 node_t *head = NULL;
 
+// Automatically initialized before main(), can also be
+// called manually
 __attribute__((constructor)) void // call function before main
 halloc_init()
 {
@@ -75,8 +77,6 @@ fhree(void *ptr)
         temp->size += hptr->size + sizeof(header_t);
         temp->next = next;
     }
-    // Automatically initialized before main(), can also be
-    // called, it checks if it was initialized before
     // current block is not close to another free block
     else
     {
@@ -99,14 +99,14 @@ mhalloc(int size)
     if (head == NULL)
     {
         puts("\e[31hallocator: not initialized correctly\e[0m");
-        return ptr;
+        return NULL;
     }
 
     // check if size is valid
     if (size <= 0)
     {
         puts("\e[31mmhalloc: invalid size\e[0m");
-        return ptr;
+        return NULL;
     }
 
     // if size is smaller than headers diff new header dont have enought space at free
@@ -144,6 +144,8 @@ void *
 rehalloc(void *ptr, int size)
 {
     void     *newptr = NULL;
+    node_t   *temp   = head;
+    node_t   *prev   = head;
     header_t *hptr;
     header_t *next;
     int       regions; // for moving data
@@ -152,7 +154,7 @@ rehalloc(void *ptr, int size)
     if (head == NULL)
     {
         puts("\e[31hallocator: not initialized correctly\e[0m");
-        return newptr;
+        return NULL;
     }
 
     // allow use rehalloc as mhalloc
@@ -171,19 +173,76 @@ rehalloc(void *ptr, int size)
 
     // check if just after this block there are a free block
     next = (void *) hptr + hptr->size + sizeof(header_t);
-    if (next->magic == MAGIC && next->size >= size - sizeof(node_t))
+
+    if (next->magic != MAGIC) // if its is equal to magic is used
     {
-        // TODO
+        // check if its big enought
+        if (next->size + sizeof(node_t) >= size - hptr->size)
+        {
+            size -= hptr->size; // update size with new nedded size
+            hptr->size += size; // update new size
+            next->size -= size; // update next block size
 
-        // ! have to return on exit
+            /*
+             * Todo: lineal search is inefficient
+             */
+            // update previous node next-pointer
+            while (temp->next != NULL)
+            {
+                if (temp->next == (node_t *) next)
+                {
+                    temp->next = (void *) next + size;
+                    break;
+                }
+                temp = temp->next;
+            }
+
+            // move next-node 'size' bytes
+            *(node_t *) ((void *) next + size) = *(node_t *) next;
+
+            // dont have to move any data
+            // return same pointer as it dont have to move
+            return ptr;
+        }
     }
-    // tambien si el bloque de antes tiene expacio se puede juntar,
-    // pero tendria que moverse el contenido porque se desplaza hacia arriba
+    goto JUMP_OVER_BAD_CODE;
+    // get previous node
+    // lineal search, inefficient
+    while ((void *) prev->next < ptr && prev->next != NULL)
+        ;
+    // check is next used block after previous free block is current used block
+    if ((void *) prev + prev->size + sizeof(node_t) == hptr)
+    {
+        size -= hptr->size;    // size is the disspacement
+        if (prev->size > size) // TODO: puede ser mas grande y que quepa
+                               // entero usando todo el bloque anterior
+        {
+            prev->size -= size;
+            // move pointer to make space to new data
+            *(header_t *) ((void *) hptr - size) = *hptr;
 
-    // allocate new memory
+            // regions of size 'sizeof(...)' in ptr
+            regions = hptr->size / sizeof(long long int);
+
+            // copy chunks of data
+            for (int i = 0; i < regions; i++)
+                ((long long int *) hptr - size)[i] = ((long long int *) hptr)[i];
+
+            // copy remaining bytes from out of last chunk
+            for (int i = 0; i < hptr->size % sizeof(long long int); i++)
+                ((char *) hptr - size + regions * sizeof(long long int))[i] =
+                ((char *) hptr + regions * sizeof(long long int))[i];
+        }
+    }
+JUMP_OVER_BAD_CODE:
+
+
+    // allocate new block and move data, then free current block
     newptr = mhalloc(size);
 
-    // move data from ptr to newptr
+    // check for out-of-memmory error
+    if (newptr == NULL)
+        return NULL;
 
     // regions of size 'sizeof(...)' in ptr
     regions = hptr->size / sizeof(long long int);
@@ -197,9 +256,7 @@ rehalloc(void *ptr, int size)
         ((char *) newptr + regions * sizeof(long long int))[i] =
         ((char *) ptr + regions * sizeof(long long int))[i];
 
-    // free current pointer
     fhree(ptr);
-
 
     return newptr;
 }
