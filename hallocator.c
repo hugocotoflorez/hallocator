@@ -222,7 +222,8 @@ rehalloc(void *ptr, int size)
     }
     // get previous node. lineal search, inefficient
     while ((void *) prev->next < ptr && prev->next != NULL)
-        ;
+        prev = prev->next;
+
     // check is next used block after previous free block is current used block
     if ((void *) prev + prev->size + sizeof(node_t) == hptr)
     {
