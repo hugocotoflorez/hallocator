@@ -34,7 +34,7 @@ halloc_init()
 }
 
 void
-__move_data(void *ptr_dest, void *ptr_src, int block_size)
+blockcpy(void *ptr_dest, void *ptr_src, int block_size)
 {
     int regions;
     // regions of size 'sizeof(...)' in ptr
@@ -173,114 +173,77 @@ mhalloc(int size)
     return ptr;
 }
 
-#define diff (size - hptr->size)
+
+void *
+rehalloc_after(void *ptr, int size, header_t *hptr)
+{
+    node_t *next    = ptr + hptr->size;
+    int     newsize = size - hptr->size;
+
+    // move next node
+    *(node_t *) (next + newsize) = (node_t){
+        .size = next->size - newsize,
+        .next = next->next,
+    };
+
+    // TODO
+
+    return NULL;
+}
+
+void *
+rehalloc_before(void *ptr, int size, header_t *hptr)
+{
+    node_t *prev = head;
+    while (prev != NULL)
+    {
+        if ((void *) prev->next > ptr)
+            break;
+    }
+    // check if previous free block is just before current block
+    if ((void *) prev + prev->size == hptr)
+    {
+    }
+
+    // TODO
+
+    return NULL;
+}
 
 void *
 rehalloc(void *ptr, int size)
 {
     void     *newptr = NULL;
-    node_t   *temp   = head;
-    node_t   *prev   = head;
     header_t *hptr;
-    header_t *newhptr;
-    header_t *next;
 
-    // check if it is initialized
-    if (head == NULL)
-    {
-#ifdef VERBOSE
-        puts("\e[31hallocator: not initialized correctly\e[0m");
-#endif
-        return NULL;
-    }
+    if (head == NULL) // check if it is initialized
+        exit(EXIT_FAILURE);
 
-    // allow use rehalloc as mhalloc
-    if (ptr == NULL)
+    if (ptr == NULL) // allow use rehalloc as mhalloc
         return mhalloc(size);
 
-    // get header
-    hptr = ptr - sizeof(header_t);
+    hptr = ptr - sizeof(header_t); // get header
 
-    // if size is invalid returns the same pointer
-    if (hptr->size >= size)
-    {
-#ifdef VERBOSE
-        puts("\e[31rehalloc: Invalid new size\e[0m");
-#endif
-        return newptr;
-    }
-
-    // check if just after this block there are a free block
-    next = (void *) hptr + hptr->size + sizeof(header_t);
-
-    if (next->magic != MAGIC) // if it is equal to magic is used
-    {
-        // check if it is big enought
-        if (next->size + sizeof(node_t) >= size - hptr->size)
-        {
-            hptr->size += size; // update new size
-            next->size -= size; // update next block size
-
-            // update previous node next-pointer
-            while (temp->next != NULL)
-            {
-                if (temp->next == (node_t *) next)
-                {
-                    temp->next = (void *) next + size;
-                    break;
-                }
-                temp = temp->next;
-            }
-
-            // move next-node 'size' bytes
-            *(node_t *) ((void *) next + size) = *(node_t *) next;
-
-            // dont have to move any data
-            // return same pointer as it dont have to move
-            return ptr;
-        }
-    }
-    // get previous node. lineal search, inefficient
-    while ((void *) prev->next < ptr && prev->next != NULL)
-        prev = prev->next;
-
-    // check is next used block after previous free block is current used block
-    if ((void *) prev + prev->size + sizeof(node_t) == hptr)
-    {
-        if (prev->size > diff) // TODO: puede ser mas grande y que quepa
-                               // entero usando todo el bloque anterior
-        {
-            prev->size -= diff;
-            // move pointer to make space to new data
-            newhptr  = (void *) hptr - diff;
-            *newhptr = (header_t){
-                .size  = size,
-                .magic = MAGIC,
-            };
-
-            newptr = (void *) newhptr + sizeof(header_t);
-
-            // move data to new position
-            __move_data(newptr, ptr, hptr->size);
-
-            return newptr;
-        }
-    }
-
-    // allocate new block and move data, then free current block
-    newptr = mhalloc(size);
-
-    // check for out-of-memmory error
-    if (newptr == NULL)
+    if (hptr->size >= size) // if size is invalid return NULL
         return NULL;
 
-    // move data
-    __move_data(newptr, ptr, hptr->size);
+    // try to allocate just after
+    if ((newptr = rehalloc_after(ptr, size, hptr)) != NULL)
+        return newptr;
+
+    // try to allocate just before
+    if ((newptr = rehalloc_before(ptr, size, hptr)) != NULL)
+        return newptr;
+
+    // allocate new block and move data, then free current block
+    if ((newptr = mhalloc(size)) == NULL) // check for out-of-memmory error
+        return NULL;
+
+    blockcpy(newptr, ptr, hptr->size); // move data
     fhree(ptr);
 
     return newptr;
 }
-#undef diff
 
 // si hay free en el medio no va
 void
