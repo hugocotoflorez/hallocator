@@ -1,8 +1,20 @@
 #include "hallocator.h"
-#include <stdio.h>    // puts, printf
-#include <stdlib.h>   // atexit
+#include <stdio.h>  // puts, printf
+#include <stdlib.h> // atexit
+#include <string.h>
 #include <sys/mman.h> // mmap, munmap
+#include <sys/types.h>
+#include <unistd.h> // read
 
+/*
+ *  Important message for readers
+ * Void* arithmetic is illegal in C
+ * but GCC allow it giving void* size 1
+ * So compile this code with other editor
+ * may produce errors.
+ *  Solution:
+ *  change void* to char* on arithmetic
+ */
 
 // global reference to free list (sorted linked list started at head)
 node_t *head = NULL;
@@ -14,8 +26,6 @@ halloc_destroy()
     munmap(head, SIZE);
 }
 
-// Automatically initialized before main(), can also be
-// called manually
 __attribute__((constructor)) void // call function before main
 halloc_init()
 {
@@ -51,68 +61,55 @@ blockcpy(void *ptr_dest, void *ptr_src, int block_size)
 }
 
 void
+blockcpy2(void *ptr_dest, void *ptr_src, int block_size)
+{
+    memmove(ptr_dest, ptr_src, block_size);
+}
+
+void
 fhree(void *ptr)
 {
-    header_t *hptr = (header_t *) ptr - 1;
-    // I think the following check never take place, so removed
-    // hptr->size <= 0 ||
-    if (hptr->magic != MAGIC)
-    {
-#ifdef VERBOSE
-        puts("\e[31mfhree: invalid pointer\e[0m");
-#endif
+    header_t *hptr;     // header of ptr
+    node_t   *prev;     // previous free-node
+    node_t   *new_node; // new node to add
+
+    if (ptr == NULL)
         return;
-    }
-    // unset header pointer as valid block pointer
+
+    hptr = ptr - sizeof(header_t);
+
+    // check if hptr is valid
+    if (hptr->magic != MAGIC)
+        return;
+
+    // unset header as valid
     hptr->magic = 0;
 
-    // get next
-    node_t *next; // pointer to next free block header
-    node_t *temp;
+    // new node to add
+    new_node       = (node_t *) hptr;
+    new_node->size = hptr->size + sizeof(header_t) - sizeof(node_t);
 
-    // insert new node into list in O(n)
-    temp = head;
-    do
-    {
-        if ((void *) temp->next > ptr || temp->next == NULL)
-        {
-            next       = temp->next;
-            temp->next = (void *) hptr;
-            break;
-        }
-        temp = temp->next;
+    // get prev node
+    prev = head;
+    while (prev->next < new_node && prev->next != NULL)
+        prev = prev->next;
 
-    } while (temp != NULL);
+    // insert new node into list
+    new_node->next = prev->next;
+    prev->next     = new_node;
 
-    // check if new free block is between two free blocks
-    if ((void *) hptr + hptr->size + sizeof(header_t) == next &&
-        (void *) hptr + hptr->size + sizeof(header_t) == next)
+    // join with next node if also free
+    if ((void *) new_node + sizeof(node_t) + new_node->size == new_node->next)
     {
-        temp->next = next->next;
-        temp->size += next->size + sizeof(header_t) + sizeof(node_t) + hptr->size;
+        new_node->size += new_node->next->size + sizeof(node_t);
+        new_node->next = new_node->next->next;
     }
-    // check if next free junk is just after new one
-    else if ((void *) hptr + hptr->size + sizeof(header_t) == next)
+
+    // join with previous node if also free
+    if ((void *) prev + sizeof(node_t) + prev->size == (void *) new_node)
     {
-        *((node_t *) hptr) = (node_t){
-            .size = hptr->size + sizeof(header_t) + next->size,
-            .next = next->next,
-        };
-    }
-    // check if previous free block is just before new one
-    else if ((void *) temp + temp->size + sizeof(node_t) == hptr)
-    {
-        temp->size += hptr->size + sizeof(header_t);
-        temp->next = next;
-    }
-    // current block is not close to another free block
-    else
-    {
-        // create node at head pointer
-        *((node_t *) hptr) = (node_t){
-            .size = hptr->size + sizeof(header_t) - sizeof(node_t),
-            .next = next,
-        };
+        prev->size += new_node->size + sizeof(node_t);
+        prev->next = new_node->next;
     }
 }
 
@@ -125,21 +122,11 @@ mhalloc(int size)
 
     // check if it is initialized
     if (head == NULL)
-    {
-#ifdef VERBOSE
-        puts("\e[31hallocator: not initialized correctly\e[0m");
-#endif
         return NULL;
-    }
 
     // check if size is valid
     if (size <= 0)
-    {
-#ifdef VERBOSE
-        puts("\e[31mmhalloc: invalid size\e[0m");
-#endif
         return NULL;
-    }
 
     // if size is smaller than headers diff new header dont have enought space at free
     if (size < sizeof(node_t) - sizeof(header_t))
@@ -177,35 +164,52 @@ mhalloc(int size)
 void *
 rehalloc_after(void *ptr, int size, header_t *hptr)
 {
-    node_t *next    = ptr + hptr->size;
-    int     newsize = size - hptr->size;
+    void     *next        = ptr + hptr->size;
+    header_t *hnext       = next;
+    node_t   *nnext       = next;
+    int       needed_size = size - hptr->size;
+    node_t   *prev;
 
-    // move next node
-    *(node_t *) (next + newsize) = (node_t){
-        .size = next->size - newsize,
-        .next = next->next,
-    };
+    if (hnext->magic == MAGIC) // next block is used
+        return NULL;
 
-    // TODO
+    // create next node
+    if (nnext->size > needed_size)
+    {
+        *(node_t *) (next + needed_size) = (node_t){
+            .size = nnext->size - needed_size,
+            .next = nnext->next,
+        };
 
-    return NULL;
+        hptr->size += needed_size;
+
+        // get prev node
+        prev = head;
+        while ((void *) prev->next < ptr && prev->next != NULL)
+            prev = prev->next;
+        prev->next = next + needed_size;
+
+        return ptr;
+    }
+    else
+        return NULL;
 }
 
 void *
 rehalloc_before(void *ptr, int size, header_t *hptr)
 {
-    node_t *prev = head;
-    while (prev != NULL)
-    {
-        if ((void *) prev->next > ptr)
-            break;
-    }
+    node_t *prev;
+
+    // get prev node
+    prev = head;
+    while ((void *) prev->next < ptr && prev->next != NULL)
+        prev = prev->next;
+
     // check if previous free block is just before current block
     if ((void *) prev + prev->size == hptr)
     {
+        // TODO
     }
-
-    // TODO
 
     return NULL;
 }
@@ -235,6 +239,8 @@ rehalloc(void *ptr, int size)
     if ((newptr = rehalloc_before(ptr, size, hptr)) != NULL)
         return newptr;
 
+
+    // default rehalloc
     // allocate new block and move data, then free current block
     if ((newptr = mhalloc(size)) == NULL) // check for out-of-memmory error
         return NULL;
@@ -245,16 +251,16 @@ rehalloc(void *ptr, int size)
     return newptr;
 }
 
-// si hay free en el medio no va
 void
-print_mem_map()
+print_mem_map(void **ptrs)
 {
     node_t   *temp = head;
     header_t *temp2;
+    char      l;
     puts("+---------------------+");
     do
     {
-        printf("|size: %14d | %p\n", temp->size, temp);
+        printf("|size: %14d | %p [free]\n", temp->size, temp);
         printf("|next: %14p |\n", temp->next);
         puts("+---------------------+");
 
@@ -269,9 +275,15 @@ print_mem_map()
         while ((void *) temp2 != (void *) temp->next &&
                (void *) temp2 < (void *) head + SIZE)
         {
+            l = ' ';
+            for (int i = 0; i < 'z' - 'a' + 1; i++)
+                if (ptrs[i] == (void *) temp2 + sizeof(header_t))
+                {
+                    l = 'a' + i;
+                }
             if (temp2->magic == MAGIC)
             {
-                printf("|size: %14d | %p\n", temp2->size, temp2);
+                printf("|size: %14d | %p [%c]\n", temp2->size, temp2, l);
                 printf("|magic: %13x |\n", temp2->magic);
                 puts("+---------------------+");
                 puts("|used                 |");
@@ -280,7 +292,7 @@ print_mem_map()
             }
             else
             {
-                printf("|size: %14d | %p\n", ((node_t *) temp2)->size, temp2);
+                printf("|size: %14d | %p [free]\n", ((node_t *) temp2)->size, temp2);
                 printf("|next: %14p |\n", ((node_t *) temp2)->next);
                 puts("+---------------------+");
                 puts("|free                 |");

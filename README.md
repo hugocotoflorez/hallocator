@@ -13,7 +13,7 @@ existing ones (neither Im able to do it).
 
 - `mhalloc(size) -> ptr`: Alloc size bytes and return a pointer to the first byte, or
 NULL if it cant allocate that ammount of bytes.
-- `fhree(ptr)`: Free an allocated block of memory (allocated using mhalloc).
+- `fhree(ptr)`: Free an allocated block of memory.
 - `rehalloc(ptr, size) -> nptr`: Alloc size bytes, copy data from ptr to new region
 and return a pointer to the new region. ptr is free, so cant be used after calling rehalloc.
 If cant allocate more memory, ptr is not free and rehalloc returns NULL.
