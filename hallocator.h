@@ -53,7 +53,7 @@ fhree(void *ptr);
 
 
 void
-print_mem_map();
+print_mem_map(void** ptrs);
 
 /*
  * Automatically initialized before main(), can also be
