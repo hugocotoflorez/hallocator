@@ -37,7 +37,10 @@ main(int argc, char *argv[])
         {
             case 'm':
                 scanf(" %c %d", &c, &n);
-                ptrs[c - 'a'] = mhalloc(n);
+                if (ptrs[c - 'a'] != NULL)
+                    puts("Variable already used!");
+                else
+                    ptrs[c - 'a'] = mhalloc(n);
                 break;
 
             case 'r':

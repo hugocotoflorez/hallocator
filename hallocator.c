@@ -91,7 +91,7 @@ fhree(void *ptr)
 
     // get prev node
     prev = head;
-    while (prev->next < new_node && prev->next != NULL)
+    while (prev->next != NULL && prev->next < new_node)
         prev = prev->next;
 
     // insert new node into list
@@ -146,6 +146,7 @@ mhalloc(int size)
         temp = temp->next;
 
     } while (temp != NULL);
+
     // if pointer fits in memory
     if (ptr != NULL)
     {
@@ -185,7 +186,7 @@ rehalloc_after(void *ptr, int size, header_t *hptr)
 
         // get prev node
         prev = head;
-        while ((void *) prev->next < ptr && prev->next != NULL)
+        while (prev->next != NULL && (void *) prev->next < ptr)
             prev = prev->next;
         prev->next = next + needed_size;
 
@@ -202,13 +203,18 @@ rehalloc_before(void *ptr, int size, header_t *hptr)
 
     // get prev node
     prev = head;
-    while ((void *) prev->next < ptr && prev->next != NULL)
+    while (prev->next != NULL && (void *) prev->next < ptr)
         prev = prev->next;
 
     // check if previous free block is just before current block
     if ((void *) prev + prev->size == hptr)
     {
-        // TODO
+        prev->size -= size - hptr->size;
+        *(header_t *) ((char *) hptr - (size - hptr->size)) = (header_t){
+            .size  = size,
+            .magic = MAGIC,
+        };
+        blockcpy((char *) hptr - (size - hptr->size) + sizeof(header_t), ptr, size);
     }
 
     return NULL;
